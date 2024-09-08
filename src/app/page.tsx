@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-'use client' 
+"use client";
 
 import { Coordinates } from "@/types";
 
@@ -20,11 +21,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { WeatherTab } from "@/components/WeatherTab";
 
+import L from "leaflet";
+
 export default function Home() {
   const [coordinates, setCoordinates] = useState<Coordinates | undefined>();
+  const mapRef = useRef<any>();
   const [goto, setGoto] = useState("");
   const [search, setSearch] = useState<string | null>(null);
-  const mapRef = useRef<any>();
   const searchOptions = ["Restaurant", "Cinema"];
   const [place, setPlace] = useState<{
     name: string;
@@ -77,10 +80,10 @@ export default function Home() {
       if (!mapRef.current)
         mapRef.current = L.map("map", {
           center: [latitude, longitude],
-          zoom: 14,
+          zoom: 13,
         });
       const map = mapRef.current;
-      map.flyTo([latitude, longitude], 14);
+      map.flyTo([latitude, longitude], 13);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors",
       }).addTo(map);
