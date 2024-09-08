@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 "use client";
@@ -21,10 +20,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { WeatherTab } from "@/components/WeatherTab";
 
-import L from "leaflet";
-
 export default function Home() {
   const [coordinates, setCoordinates] = useState<Coordinates | undefined>();
+  const LRef = useRef<any>();
   const mapRef = useRef<any>();
   const [goto, setGoto] = useState("");
   const [search, setSearch] = useState<string | null>(null);
@@ -34,7 +32,7 @@ export default function Home() {
     coordinates: [number, number];
   }>();
   const directionRef = useRef<any>();
-  const [forecast, setForecast] = useState<any[] | any>();
+  const [forecast, setForecast] = useState<any[] | any>(undefined);
   const groupedForecast = useMemo(
     () =>
       forecast
@@ -58,25 +56,30 @@ export default function Home() {
   );
 
   useEffect(() => {
-    const location = navigator.geolocation;
-    const getPositionSuccess = (position: GeolocationPosition) => {
-      setCoordinates({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
+    const init = async () => {
+      LRef.current = await import("leaflet");
+      const location = navigator.geolocation;
+      const getPositionSuccess = (position: GeolocationPosition) => {
+        setCoordinates({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      };
+      location.getCurrentPosition(
+        getPositionSuccess,
+        (error) => {
+          console.log(error);
+        },
+        { enableHighAccuracy: true }
+      );
     };
-    location.getCurrentPosition(
-      getPositionSuccess,
-      (error) => {
-        console.log(error);
-      },
-      { enableHighAccuracy: true }
-    );
+    init();
   }, []);
 
   useEffect(() => {
     if (coordinates) {
       const { latitude, longitude } = coordinates;
+      const L = LRef.current;
       if (!mapRef.current)
         mapRef.current = L.map("map", {
           center: [latitude, longitude],
@@ -96,6 +99,7 @@ export default function Home() {
 
   useEffect(() => {
     if (search && coordinates) {
+      const L = LRef.current;
       const map = mapRef.current;
       fetch(
         `https://nominatim.openstreetmap.org/search?q=${search}&format=json&limit=10&viewbox=${
@@ -131,6 +135,7 @@ export default function Home() {
 
   useEffect(() => {
     if (place && coordinates) {
+      const L = LRef.current;
       const map = mapRef.current;
       if (directionRef.current) map.removeControl(directionRef.current);
       directionRef.current = L.Routing.control({
