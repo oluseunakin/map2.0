@@ -150,38 +150,7 @@ export default function Home() {
 
   if (coordinates)
     return (
-      <Grid2
-        height="inherit"
-        alignItems="center"
-        container
-        spacing={3}
-      >
-        <Grid2 height="inherit" size={{ xs: 12, md: 8 }}>
-          {place && (
-            <Card sx={{ marginBottom: 5 }}>
-              <CardContent>
-                <Stack spacing={3} alignItems="center">
-                  <Typography textAlign="center" variant="h5">
-                    {place.name}
-                  </Typography>
-                </Stack>
-              </CardContent>
-            </Card>
-          )}
-          {groupedForecast && (
-            <Card sx={{ marginBottom: 5 }}>
-              <CardContent>
-                <Stack spacing={3}>
-                  <Typography margin="auto" textAlign="center" variant="h5">
-                    Your Weather Information
-                  </Typography>
-                  <WeatherTab forecast={groupedForecast} />
-                </Stack>
-              </CardContent>
-            </Card>
-          )}
-          <Card elevation={5} sx={{ height: "100%" }} id="map"></Card>
-        </Grid2>
+      <Grid2 height="inherit" alignItems="center" container spacing={3}>
         <Grid2 size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
@@ -299,6 +268,32 @@ export default function Home() {
               </Stack>
             </CardContent>
           </Card>
+        </Grid2>
+        <Grid2 height="inherit" size={{ xs: 12, md: 8 }}>
+          {place && (
+            <Card sx={{ marginBottom: 5 }}>
+              <CardContent>
+                <Stack spacing={3} alignItems="center">
+                  <Typography textAlign="center" variant="h5">
+                    {place.name}
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+          {groupedForecast && (
+            <Card sx={{ marginBottom: 5 }}>
+              <CardContent>
+                <Stack spacing={3}>
+                  <Typography margin="auto" textAlign="center" variant="h5">
+                    Your Weather Information
+                  </Typography>
+                  <WeatherTab forecast={groupedForecast} />
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+          <Card elevation={5} sx={{ height: "100%" }} id="map"></Card>
         </Grid2>
       </Grid2>
     );
