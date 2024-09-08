@@ -154,7 +154,6 @@ export default function Home() {
         height="inherit"
         alignItems="center"
         container
-        wrap="wrap-reverse"
         spacing={3}
       >
         <Grid2 height="inherit" size={{ xs: 12, md: 8 }}>
