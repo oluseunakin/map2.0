@@ -20,9 +20,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { WeatherTab } from "@/components/WeatherTab";
 
+let LeafletRef: any = null;
+
 export default function Home() {
   const [coordinates, setCoordinates] = useState<Coordinates | undefined>();
-  const LRef = useRef<any>();
   const mapRef = useRef<any>();
   const [goto, setGoto] = useState("");
   const [search, setSearch] = useState<string | null>(null);
@@ -56,50 +57,52 @@ export default function Home() {
   );
 
   useEffect(() => {
-    const init = async () => {
-      LRef.current = await import("leaflet");
-      const location = navigator.geolocation;
-      const getPositionSuccess = (position: GeolocationPosition) => {
-        setCoordinates({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-      };
-      location.getCurrentPosition(
-        getPositionSuccess,
-        (error) => {
-          console.log(error);
-        },
-        { enableHighAccuracy: true }
-      );
+    const location = navigator.geolocation;
+    const getPositionSuccess = (position: GeolocationPosition) => {
+      setCoordinates({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
     };
-    init();
+    location.getCurrentPosition(
+      getPositionSuccess,
+      (error) => {
+        console.log(error);
+      },
+      { enableHighAccuracy: true }
+    );
   }, []);
 
   useEffect(() => {
-    if (coordinates) {
-      const { latitude, longitude } = coordinates;
-      const L = LRef.current;
-      if (!mapRef.current)
-        mapRef.current = L.map("map", {
-          center: [latitude, longitude],
-          zoom: 13,
-        });
-      const map = mapRef.current;
-      map.flyTo([latitude, longitude], 13);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors",
-      }).addTo(map);
-      L.marker([coordinates.latitude, coordinates.longitude])
-        .addTo(map)
-        .bindPopup("You are here.")
-        .openPopup();
+    async function doThis() {
+      if (coordinates) {
+        const { latitude, longitude } = coordinates;
+        LeafletRef = await import("leaflet");
+        await import("leaflet-routing-machine");
+        if (!mapRef.current)
+          mapRef.current = LeafletRef.map("map", {
+            center: [latitude, longitude],
+            zoom: 13,
+          });
+        const map = mapRef.current;
+        map.flyTo([latitude, longitude], 13);
+        LeafletRef.tileLayer(
+          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          {
+            attribution: "© OpenStreetMap contributors",
+          }
+        ).addTo(map);
+        LeafletRef.marker([coordinates.latitude, coordinates.longitude])
+          .addTo(map)
+          .bindPopup("You are here.")
+          .openPopup();
+      }
     }
+    doThis();
   }, [coordinates]);
 
   useEffect(() => {
     if (search && coordinates) {
-      const L = LRef.current;
       const map = mapRef.current;
       fetch(
         `https://nominatim.openstreetmap.org/search?q=${search}&format=json&limit=10&viewbox=${
@@ -112,7 +115,7 @@ export default function Home() {
         .then((data) => {
           data.forEach(
             (place: { lat: number; lon: number; display_name: string }) => {
-              const marker = L.marker([place.lat, place.lon]);
+              const marker = LeafletRef.marker([place.lat, place.lon]);
               marker
                 .addTo(map)
                 .bindPopup(
@@ -135,13 +138,12 @@ export default function Home() {
 
   useEffect(() => {
     if (place && coordinates) {
-      const L = LRef.current;
       const map = mapRef.current;
       if (directionRef.current) map.removeControl(directionRef.current);
-      directionRef.current = L.Routing.control({
+      directionRef.current = LeafletRef.Routing.control({
         waypoints: [
-          L.latLng(coordinates.latitude, coordinates.longitude), // Starting point (Latitude, Longitude)
-          L.latLng(place.coordinates[0], place.coordinates[1]), // Destination point
+          LeafletRef.latLng(coordinates.latitude, coordinates.longitude), // Starting point (Latitude, Longitude)
+          LeafletRef.latLng(place.coordinates[0], place.coordinates[1]), // Destination point
         ],
         routeWhileDragging: true,
       }).addTo(map);
@@ -150,7 +152,42 @@ export default function Home() {
 
   if (coordinates)
     return (
-      <Grid2 height="inherit" alignItems="center" container spacing={3}>
+      <Grid2
+        alignItems="center"
+        container
+        wrap="wrap-reverse"
+        spacing={3}
+      >
+        <Grid2 size={{ xs: 12, md: 8 }}>
+          {place && (
+            <Card sx={{ marginBottom: 5 }}>
+              <CardContent>
+                <Stack spacing={3} alignItems="center">
+                  <Typography textAlign="center" variant="h5">
+                    {place.name}
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+          {groupedForecast && (
+            <Card sx={{ marginBottom: 5 }}>
+              <CardContent>
+                <Stack spacing={3}>
+                  <Typography margin="auto" textAlign="center" variant="h5">
+                    Your Weather Information
+                  </Typography>
+                  <WeatherTab forecast={groupedForecast} />
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+          <Card
+            elevation={5}
+            sx={{ height: 550}}
+            id="map"
+          ></Card>
+        </Grid2>
         <Grid2 size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
@@ -269,36 +306,10 @@ export default function Home() {
             </CardContent>
           </Card>
         </Grid2>
-        <Grid2 height="inherit" size={{ xs: 12, md: 8 }}>
-          {place && (
-            <Card sx={{ marginBottom: 5 }}>
-              <CardContent>
-                <Stack spacing={3} alignItems="center">
-                  <Typography textAlign="center" variant="h5">
-                    {place.name}
-                  </Typography>
-                </Stack>
-              </CardContent>
-            </Card>
-          )}
-          {groupedForecast && (
-            <Card sx={{ marginBottom: 5 }}>
-              <CardContent>
-                <Stack spacing={3}>
-                  <Typography margin="auto" textAlign="center" variant="h5">
-                    Your Weather Information
-                  </Typography>
-                  <WeatherTab forecast={groupedForecast} />
-                </Stack>
-              </CardContent>
-            </Card>
-          )}
-          <Card elevation={5} sx={{ height: "100%" }} id="map"></Card>
-        </Grid2>
       </Grid2>
     );
   return (
-    <Container maxWidth="sm" sx={{ height: "inherit" }}>
+    <Container maxWidth="sm" sx={{ height: "100vh" }}>
       <Stack
         alignItems="center"
         justifyContent="center"

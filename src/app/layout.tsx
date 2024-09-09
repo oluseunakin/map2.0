@@ -51,7 +51,7 @@ export default function RootLayout({
         <Script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js" />
       </head>
       <body
-        style={{ padding: 10, height: "97vh" }}
+        style={{marginTop: 10, marginInline: 10, marginBottom: 5 }}
         className={`${geistSans.variable} ${geistMono.variable}`}
       >
         <AppRouterCacheProvider>
