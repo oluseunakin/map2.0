@@ -15,6 +15,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import LocationSearchingOutlinedIcon from "@mui/icons-material/LocationSearchingOutlined";
+import HomeIcon from "@mui/icons-material/Home";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -24,6 +25,7 @@ let LeafletRef: any = null;
 
 export default function Home() {
   const [coordinates, setCoordinates] = useState<Coordinates | undefined>();
+  const homeRef = useRef<Coordinates>();
   const mapRef = useRef<any>();
   const [goto, setGoto] = useState("");
   const [search, setSearch] = useState<string | null>(null);
@@ -59,9 +61,12 @@ export default function Home() {
   useEffect(() => {
     const location = navigator.geolocation;
     const getPositionSuccess = (position: GeolocationPosition) => {
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+      homeRef.current = { latitude, longitude };
       setCoordinates({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
+        latitude,
+        longitude,
       });
     };
     location.getCurrentPosition(
@@ -74,17 +79,14 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    async function doThis() {
+    async function initMap() {
       if (coordinates) {
         const { latitude, longitude } = coordinates;
         LeafletRef = await import("leaflet");
         await import("leaflet-routing-machine");
-        if (!mapRef.current)
-          mapRef.current = LeafletRef.map("map", {
-            center: [latitude, longitude],
-            zoom: 13,
-          });
+        if (!mapRef.current) mapRef.current = LeafletRef.map("map");
         const map = mapRef.current;
+        map.setView([latitude, longitude], 13);
         map.flyTo([latitude, longitude], 13);
         LeafletRef.tileLayer(
           "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -98,7 +100,7 @@ export default function Home() {
           .openPopup();
       }
     }
-    doThis();
+    initMap();
   }, [coordinates]);
 
   useEffect(() => {
@@ -152,12 +154,7 @@ export default function Home() {
 
   if (coordinates)
     return (
-      <Grid2
-        alignItems="center"
-        container
-        wrap="wrap-reverse"
-        spacing={3}
-      >
+      <Grid2 alignItems="center" container wrap="wrap-reverse" spacing={3}>
         <Grid2 size={{ xs: 12, md: 8 }}>
           {place && (
             <Card sx={{ marginBottom: 5 }}>
@@ -182,13 +179,27 @@ export default function Home() {
               </CardContent>
             </Card>
           )}
-          <Card
-            elevation={5}
-            sx={{ height: 550}}
-            id="map"
-          ></Card>
+          <Card elevation={5} sx={{ height: 550 }} id="map"></Card>
         </Grid2>
         <Grid2 size={{ xs: 12, md: 4 }}>
+          <Stack alignItems="center" marginBottom={2}>
+            <Button
+              disabled={!(forecast || goto || search || place)}
+              onClick={() => {
+                setCoordinates(homeRef.current);
+                setForecast(undefined);
+                setGoto("");
+                setSearch(null);
+                setPlace(undefined);
+                place && mapRef.current.removeControl(directionRef.current);
+              }}
+              startIcon={<HomeIcon sx={{ width: 30, height: 30 }} />}
+            >
+              <Typography variant="h2" fontSize={30}>
+                HOME
+              </Typography>
+            </Button>
+          </Stack>
           <Card>
             <CardContent>
               <Stack spacing={3}>
