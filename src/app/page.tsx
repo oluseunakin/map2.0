@@ -20,8 +20,9 @@ import HomeIcon from "@mui/icons-material/Home";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { WeatherTab } from "@/components/WeatherTab";
+import L from "leaflet";
+import "leaflet-routing-machine";
 
-let LeafletRef: any = null;
 
 export default function Home() {
   const [coordinates, setCoordinates] = useState<Coordinates | undefined>();
@@ -35,6 +36,7 @@ export default function Home() {
     coordinates: [number, number];
   }>();
   const directionRef = useRef<any>();
+  const markerRef = useRef<any>();
   const [forecast, setForecast] = useState<any[] | any>(undefined);
   const groupedForecast = useMemo(
     () =>
@@ -45,10 +47,10 @@ export default function Home() {
                 const date = item.date;
 
                 if (!groups[date]) {
-                  groups[date] = []; // Initialize group if not already created
+                  groups[date] = [];
                 }
 
-                groups[date].push(item); // Add the item to the appropriate group
+                groups[date].push(item);
                 return groups;
               },
               {}
@@ -82,19 +84,18 @@ export default function Home() {
     async function initMap() {
       if (coordinates) {
         const { latitude, longitude } = coordinates;
-        LeafletRef = await import("leaflet");
-        await import("leaflet-routing-machine");
-        if (!mapRef.current) mapRef.current = LeafletRef.map("map");
+        
+        if (!mapRef.current) mapRef.current = L.map("map");
         const map = mapRef.current;
-        map.setView([latitude, longitude], 13);
-        map.flyTo([latitude, longitude], 13);
-        LeafletRef.tileLayer(
-          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          {
+        map.setView([latitude, longitude], 12);
+        map.flyTo([latitude, longitude], 12);
+        L
+          .tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
             attribution: "© OpenStreetMap contributors",
-          }
-        ).addTo(map);
-        LeafletRef.marker([coordinates.latitude, coordinates.longitude])
+          })
+          .addTo(map);
+        L
+          .marker([coordinates.latitude, coordinates.longitude])
           .addTo(map)
           .bindPopup("You are here.")
           .openPopup();
@@ -106,6 +107,7 @@ export default function Home() {
   useEffect(() => {
     if (search && coordinates) {
       const map = mapRef.current;
+      markerRef.current && map.removeControl(markerRef.current);
       fetch(
         `https://nominatim.openstreetmap.org/search?q=${search}&format=json&limit=10&viewbox=${
           coordinates.longitude - 0.05
@@ -117,15 +119,18 @@ export default function Home() {
         .then((data) => {
           data.forEach(
             (place: { lat: number; lon: number; display_name: string }) => {
-              const marker = LeafletRef.marker([place.lat, place.lon]);
-              marker
+              markerRef.current = L.marker([
+                place.lat,
+                place.lon,
+              ]);
+              markerRef.current
                 .addTo(map)
                 .bindPopup(
                   `${place.display_name}
               Click on marker to see more`
                 )
                 .openPopup();
-              marker.on("click", () => {
+              markerRef.current.on("click", () => {
                 setPlace({
                   name: place.display_name,
                   coordinates: [place.lat, place.lon],
@@ -142,19 +147,24 @@ export default function Home() {
     if (place && coordinates) {
       const map = mapRef.current;
       if (directionRef.current) map.removeControl(directionRef.current);
-      directionRef.current = LeafletRef.Routing.control({
+      directionRef.current = L.Routing.control({
         waypoints: [
-          LeafletRef.latLng(coordinates.latitude, coordinates.longitude), // Starting point (Latitude, Longitude)
-          LeafletRef.latLng(place.coordinates[0], place.coordinates[1]), // Destination point
+          L.latLng(
+            coordinates.latitude,
+            coordinates.longitude
+          ), // Starting point (Latitude, Longitude)
+          L.latLng(place.coordinates[0], place.coordinates[1]), // Destination point
         ],
         routeWhileDragging: true,
-      }).addTo(map);
+      })
+      map.addControl(directionRef.current)
     }
+
   }, [place, coordinates]);
 
   if (coordinates)
     return (
-      <Grid2 alignItems="center" container wrap="wrap-reverse" spacing={3}>
+      <Grid2 justifyContent="center" container wrap="wrap-reverse" spacing={3}>
         <Grid2 size={{ xs: 12, md: 8 }}>
           {place && (
             <Card sx={{ marginBottom: 5 }}>
@@ -174,7 +184,10 @@ export default function Home() {
                   <Typography margin="auto" textAlign="center" variant="h5">
                     Your Weather Information
                   </Typography>
-                  <WeatherTab forecast={groupedForecast} />
+                  <WeatherTab
+                    setForecast={setForecast}
+                    forecast={groupedForecast}
+                  />
                 </Stack>
               </CardContent>
             </Card>
@@ -182,145 +195,157 @@ export default function Home() {
           <Card elevation={5} sx={{ height: 550 }} id="map"></Card>
         </Grid2>
         <Grid2 size={{ xs: 12, md: 4 }}>
-          <Stack alignItems="center" marginBottom={2}>
-            <Button
-              disabled={!(forecast || goto || search || place)}
-              onClick={() => {
-                setCoordinates(homeRef.current);
-                setForecast(undefined);
-                setGoto("");
-                setSearch(null);
-                setPlace(undefined);
-                place && mapRef.current.removeControl(directionRef.current);
-              }}
-              startIcon={<HomeIcon sx={{ width: 30, height: 30 }} />}
-            >
-              <Typography variant="h2" fontSize={30}>
-                HOME
-              </Typography>
-            </Button>
-          </Stack>
-          <Card>
-            <CardContent>
-              <Stack spacing={3}>
-                {goto.length == 0 ? (
-                  <Button
-                    variant="outlined"
-                    color="success"
-                    onClick={() => {
-                      setGoto("goto");
-                    }}
-                  >
-                    Go anywhere
-                  </Button>
-                ) : (
-                  <TextField
-                    placeholder="Go anywhere"
-                    onChange={(e) => {
-                      setGoto(e.target.value);
-                    }}
-                    slotProps={{
-                      input: {
-                        endAdornment: (
-                          <Chip
-                            onClick={() => {
-                              fetch(
-                                `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-                                  goto
-                                )}&format=json&limit=1`
-                              )
-                                .then((response) => response.json())
-                                .then((data) => {
-                                  const latitude = parseFloat(data[0].lat);
-                                  const longitude = parseFloat(data[0].lon);
-                                  setCoordinates({ latitude, longitude });
-                                })
-                                .catch((error) =>
-                                  console.error("Error:", error)
-                                );
-                            }}
-                            label="Go to"
-                            color="primary"
-                            icon={<LocationSearchingOutlinedIcon />}
-                          />
-                        ),
-                      },
-                    }}
-                  />
-                )}
-                <Autocomplete
-                  value={search}
-                  onChange={(e, newValue) => {
-                    setSearch(newValue);
-                  }}
-                  disablePortal
-                  options={searchOptions}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Search for interesting places and landmarks"
-                    />
-                  )}
-                />
+          <Container sx={{ height: { md: "90vh" } }}>
+            <Stack justifyContent="center" height="inherit">
+              <Stack alignItems="center" marginBottom={2}>
                 <Button
-                  variant="contained"
-                  color="primary"
+                  disabled={!(forecast || goto || search || place)}
                   onClick={() => {
-                    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${coordinates.latitude}&lon=${coordinates.longitude}&appid=${process.env.NEXT_PUBLIC_WEATHER_KEY}&units=metric`;
-                    fetch(url)
-                      .then((response) => response.json())
-                      .then((data) => {
-                        setForecast({
-                          temperature: data.main.temp,
-                          weatherDescription: data.weather[0].description,
-                          date: new Date().toDateString(),
-                        });
-                      })
-                      .catch((error) =>
-                        console.error("Error fetching weather data:", error)
-                      );
+                    setCoordinates(homeRef.current);
+                    setForecast(undefined);
+                    setGoto("");
+                    setSearch(null);
+                    setPlace(undefined);
+                    place && mapRef.current.removeControl(directionRef.current);
                   }}
+                  startIcon={<HomeIcon sx={{ width: 30, height: 30 }} />}
                 >
-                  Get daily Weather info
-                </Button>
-                <Button
-                  variant="contained"
-                  color="info"
-                  onClick={() => {
-                    const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${coordinates.latitude}&lon=${coordinates.longitude}&appid=${process.env.NEXT_PUBLIC_WEATHER_KEY}&units=metric`;
-                    fetch(url)
-                      .then((response) => response.json())
-                      .then((data) => {
-                        setForecast(
-                          data.list.map(
-                            (forecast: {
-                              main: { temp: any };
-                              weather: { description: any }[];
-                              dt_txt: string;
-                            }) => ({
-                              temperature: forecast.main.temp,
-                              weatherDescription:
-                                forecast.weather[0].description,
-                              date: new Date(forecast.dt_txt).toDateString(),
-                            })
-                          )
-                        );
-                      })
-                      .catch((error) =>
-                        console.error("Error fetching weather data:", error)
-                      );
-                  }}
-                >
-                  Get Weather Forecast
+                  <Typography variant="h2" fontSize={30}>
+                    HOME
+                  </Typography>
                 </Button>
               </Stack>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardContent>
+                  <Stack spacing={3}>
+                    {goto.length == 0 ? (
+                      <Button
+                        variant="outlined"
+                        color="success"
+                        onClick={() => {
+                          setGoto("goto");
+                        }}
+                      >
+                        Go anywhere
+                      </Button>
+                    ) : (
+                      <TextField
+                        placeholder="Go anywhere"
+                        onChange={(e) => {
+                          setGoto(e.target.value);
+                        }}
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <Chip
+                                onClick={() => {
+                                  fetch(
+                                    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+                                      goto
+                                    )}&format=json&limit=1`
+                                  )
+                                    .then((response) => response.json())
+                                    .then((data) => {
+                                      const latitude = parseFloat(data[0].lat);
+                                      const longitude = parseFloat(data[0].lon);
+                                      setCoordinates({ latitude, longitude });
+                                      setForecast(undefined);
+                                      setGoto("");
+                                      setSearch(null);
+                                      setPlace(undefined);
+                                      mapRef.current.removeControl(directionRef.current)
+                                    })
+                                    .catch((error) =>
+                                      console.error("Error:", error)
+                                    );
+                                }}
+                                label="Go to"
+                                color="primary"
+                                icon={<LocationSearchingOutlinedIcon />}
+                              />
+                            ),
+                          },
+                        }}
+                      />
+                    )}
+                    <Autocomplete
+                      value={search}
+                      onChange={(e, newValue) => {
+                        setSearch(newValue);
+                      }}
+                      disablePortal
+                      options={searchOptions}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Search for interesting places and landmarks"
+                        />
+                      )}
+                    />
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={() => {
+                        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${coordinates.latitude}&lon=${coordinates.longitude}&appid=${process.env.NEXT_PUBLIC_WEATHER_KEY}&units=metric`;
+                        fetch(url)
+                          .then((response) => response.json())
+                          .then((data) => {
+                            setForecast({
+                              temperature: data.main.temp,
+                              weatherDescription: data.weather[0].description,
+                              date: new Date().toDateString(),
+                            });
+                          })
+                          .catch((error) =>
+                            console.error("Error fetching weather data:", error)
+                          );
+                      }}
+                    >
+                      Get daily Weather info
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="info"
+                      onClick={() => {
+                        const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${coordinates.latitude}&lon=${coordinates.longitude}&appid=${process.env.NEXT_PUBLIC_WEATHER_KEY}&units=metric`;
+                        fetch(url)
+                          .then((response) => response.json())
+                          .then((data) => {
+                            setForecast(
+                              data.list.map(
+                                (forecast: {
+                                  main: { temp: any };
+                                  weather: { description: any }[];
+                                  dt_txt: string;
+                                }) => ({
+                                  temperature: forecast.main.temp,
+                                  weatherDescription:
+                                    forecast.weather[0].description,
+                                  date: new Date(
+                                    forecast.dt_txt
+                                  ).toDateString(),
+                                })
+                              )
+                            );
+                          })
+                          .catch((error) =>
+                            console.error("Error fetching weather data:", error)
+                          );
+                      }}
+                    >
+                      Get Weather Forecast
+                    </Button>
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Stack>
+          </Container>
         </Grid2>
       </Grid2>
     );
+
   return (
-    <Container maxWidth="sm" sx={{ height: "100vh" }}>
+    <Container maxWidth="sm" sx={{ height: "90vh" }}>
       <Stack
         alignItems="center"
         justifyContent="center"

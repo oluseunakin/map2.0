@@ -3,11 +3,13 @@ import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
+  IconButton,
   Stack,
   Tab,
   Tabs,
   Typography,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 import React from "react";
@@ -21,7 +23,13 @@ function a11yProps(index: number) {
   };
 }
 
-export const WeatherTab = ({ forecast }: { forecast: any }) => {
+export const WeatherTab = ({
+  forecast,
+  setForecast,
+}: {
+  forecast: any;
+  setForecast: React.Dispatch<any>;
+}) => {
   const entries = Object.entries(forecast) as [string, any][];
   const [value, setValue] = React.useState(0);
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -29,6 +37,15 @@ export const WeatherTab = ({ forecast }: { forecast: any }) => {
   };
   return (
     <Stack>
+      <Stack direction="row" justifyContent="end">
+        <IconButton
+          onClick={() => {
+            setForecast(undefined);
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </Stack>
       <Tabs
         value={value}
         onChange={handleChange}
